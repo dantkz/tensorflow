@@ -9,8 +9,6 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
-load("//tensorflow:tensorflow.bzl", "tf_cc_test")
-
 filegroup(
     name = "all_files",
     srcs = glob(
@@ -41,11 +39,11 @@ cc_library(
     ],
 )
 
-tf_cc_test(
+cc_test(
     name = "xla_tf_graph_util_test",
+    size = "small",
     srcs = ["xla_tf_graph_util_test.cc"],
     linkstatic = 1,
-    tags = ["nomac"],  # b/63908145
     deps = [
         ":xla_tf_graph_util",
         "//tensorflow/cc:cc_ops",
