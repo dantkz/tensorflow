@@ -159,21 +159,17 @@ cc_library(
         "toco_types.h",
     ],
     deps = [
+        # Placeholder for internal file dependency.
         "//tensorflow/core:framework_lite",
         "//tensorflow/core:lib",
         "//tensorflow/core:lib_internal",
-    ] + select({
-        "//tensorflow:android": [],
-        "//tensorflow:darwin": [],
-        "//tensorflow:ios": [],
-        "//conditions:default": [],
-        "//tensorflow:dummy_disabled_internal": [],
-    }),
+    ],
 )
 
 cc_library(
     name = "graph_transformations",
     srcs = [
+        "graph_transformations/convert_expanddims_to_reshape.cc",
         "graph_transformations/convert_pure_conv_to_depthwise.cc",
         "graph_transformations/create_im2col_arrays.cc",
         "graph_transformations/dequantize.cc",

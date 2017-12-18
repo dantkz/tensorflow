@@ -18,6 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import contextlib
+
 from tensorflow.core.framework import step_stats_pb2
 from tensorflow.core.grappler.costs import op_performance_data_pb2
 from tensorflow.core.protobuf import device_properties_pb2
@@ -46,6 +48,7 @@ class Cluster(object):
         the local machine.
     """
     self._tf_cluster = None
+    self._generate_timeline = not disable_timeline
     with errors.raise_exception_on_not_ok_status() as status:
       if devices is None:
         self._tf_cluster = tf_cluster.TF_NewCluster(
@@ -54,11 +57,14 @@ class Cluster(object):
         devices_serialized = [device.SerializeToString() for device in devices]
         self._tf_cluster = tf_cluster.TF_NewVirtualCluster(
             devices_serialized, status)
-    self._generate_timeline = not disable_timeline
+
+  def Shutdown(self):
+    if self._tf_cluster is not None:
+      tf_cluster.TF_ShutdownCluster(self._tf_cluster)
+      self._tf_cluster = None
 
   def __del__(self):
-    if self._tf_cluster is not None:
-      tf_cluster.TF_DeleteCluster(self._tf_cluster)
+    self.Shutdown()
 
   @property
   def tf_cluster(self):
@@ -108,3 +114,14 @@ class Cluster(object):
           item.tf_item, self._tf_cluster, status)
 
     return ret_from_swig
+
+
+@contextlib.contextmanager
+def Provision(allow_soft_placement=True,
+              disable_detailed_stats=True,
+              disable_timeline=True,
+              devices=None):
+  cluster = Cluster(allow_soft_placement, disable_detailed_stats,
+                    disable_timeline, devices)
+  yield cluster
+  cluster.Shutdown()

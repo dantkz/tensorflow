@@ -148,6 +148,17 @@ ENTRY %ConstantF16.v4 () -> f16[] {
 
 )"
 },
+// bf16
+{
+"BF16",
+R"(HloModule BF16:
+
+ENTRY %BF16.v4 () -> bf16[] {
+  ROOT %constant = bf16[] constant(500)
+}
+
+)"
+},
 // constant + constant
 {
 "AddConstants",
@@ -354,6 +365,19 @@ ENTRY %ConvolveR2.v3 (input: f32[1,2], filter: f32[1,1]) -> f32[1,2] {
   %input = f32[1,2]{1,0} parameter(0)
   %filter = f32[1,1]{1,0} parameter(1)
   ROOT %convolution = f32[1,2]{0,1} convolution(f32[1,2]{1,0} %input, f32[1,1]{1,0} %filter), dim_labels=bf_io->bf
+}
+
+)"
+},
+// convolution backward
+{
+"ConvolutionBackward",
+R"(HloModule ConvolveBackward_module:
+
+ENTRY %ConvolveBackward (input: f32[128,7,7,512], filter: f32[3,3,512,512]) -> f32[128,14,14,512] {
+  %input = f32[128,7,7,512]{0,3,2,1} parameter(0)
+  %filter = f32[3,3,512,512]{3,2,1,0} parameter(1)
+  ROOT %convolution-base-dilated = f32[128,14,14,512]{0,3,2,1} convolution(f32[128,7,7,512]{0,3,2,1} %input, f32[3,3,512,512]{3,2,1,0} %filter), window={size=3x3 pad=1_2x1_2 lhs_dilate=2x2 rhs_reversal=1x1}, dim_labels=b01f_01oi->b01f
 }
 
 )"
@@ -655,7 +679,69 @@ ENTRY %InfeedToOutfeed () -> (u32[3], pred[]) {
 }
 
 )"
+},
+// Rng
+{
+"Rng",
+R"(HloModule rng_module:
+
+ENTRY %Rng () -> f32[8] {
+  %constant = f32[] constant(0)
+  %constant.1 = f32[] constant(1)
+  ROOT %rng = f32[8]{0} rng(f32[] %constant, f32[] %constant.1), distribution=rng_uniform
 }
+
+)"
+},
+// Reduce precision
+{
+"ReducePrevison",
+R"(HloModule reduce_precision:
+
+ENTRY %ReducePrecision () -> f32[1] {
+  %constant = f32[1]{0} constant({3.14159})
+  ROOT %reduce-precision = f32[1]{0} reduce-precision(f32[1]{0} %constant), exponent_bits=8, mantissa_bits=10
+}
+
+)"
+},
+// Conditional
+{
+"Conditional",
+R"(HloModule conditional:
+
+%Negate (x: f32[]) -> f32[] {
+  %x = f32[] parameter(0)
+  ROOT %negate = f32[] negate(f32[] %x)
+}
+
+%Identity (y: f32[]) -> f32[] {
+  %y = f32[] parameter(0)
+  ROOT %copy = f32[] copy(f32[] %y)
+}
+
+ENTRY %Parameters1.v4 () -> f32[] {
+  %constant = pred[] constant(true)
+  %constant.1 = f32[] constant(56)
+  %constant.2 = f32[] constant(12)
+  ROOT %conditional = f32[] conditional(pred[] %constant, f32[] %constant.1, f32[] %constant.2), true_computation=%Negate, false_computation=%Identity
+}
+
+)"
+},
+
+// CustomCall
+{
+"CustomCall",
+R"(HloModule custom_call:
+
+ENTRY %CustomCall () -> f32[1,2,3] {
+  %constant = f32[1]{0} constant({12345})
+  ROOT %custom-call = f32[1,2,3]{0,2,1} custom-call(f32[1]{0} %constant), custom_call_target="foo\"bar"
+}
+
+)"
+},
   });
   // clang-format on
 }
@@ -674,7 +760,7 @@ class HloParserTest : public ::testing::Test,
   void ExpectEqual() {
     const string& original = GetParam().module_string;
     auto result = Parse(original);
-    TF_EXPECT_OK(result.status());
+    TF_ASSERT_OK(result.status());
     EXPECT_EQ(original,
               result.ValueOrDie()->ToString(/*include_large_constants=*/true));
   }
@@ -873,12 +959,6 @@ ENTRY %Convolve1D1Window_0.v3 (input: f32[1,2,1], filter: f32[1,1,1]) -> f32[1,2
                       .status()
                       .error_message(),
                   "must have the same rank");
-
-  ExpectHasSubstr(Parse(StrCat(prefix, ",dim_labels=0bf_io0->b0f", suffix))
-                      .status()
-                      .error_message(),
-                  "output spatial dimensions should be the same as input "
-                  "spatial dimensions");
 }
 
 TEST_F(HloParserTest, UnexpectedAttribute) {

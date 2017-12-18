@@ -100,7 +100,7 @@ class MapDatasetOp : public UnaryDatasetOpKernel {
 
       DataTypeVector other_arguments_types(
           captured_func_->captured_inputs().size());
-      std::vector<NodeBuilder::NodeOut> other_arguments(
+      std::vector<Node*> other_arguments(
           captured_func_->captured_inputs().size());
       for (const Tensor& t : captured_func_->captured_inputs()) {
         Node* node;
@@ -146,7 +146,7 @@ class MapDatasetOp : public UnaryDatasetOpKernel {
         FunctionLibraryRuntime::Options opts;
         opts.step_id = CapturedFunction::generate_step_id();
         ScopedStepContainer step_container(
-            opts.step_id, [this, ctx](const string& name) {
+            opts.step_id, [this](const string& name) {
               dataset()
                   ->captured_func_->resource_manager()
                   ->Cleanup(name)
@@ -156,7 +156,8 @@ class MapDatasetOp : public UnaryDatasetOpKernel {
         opts.runner = ctx->runner();
         // TODO(mrry): Avoid blocking a threadpool thread. We will need to
         // stack-rip the iterators and use async kernels.
-        Status s = dataset()->captured_func_->Run(opts, args, out_tensors);
+        Status s =
+            dataset()->captured_func_->Run(opts, std::move(args), out_tensors);
         if (errors::IsOutOfRange(s)) {
           // `f` may deliberately raise `errors::OutOfRange` to indicate
           // that we should terminate the iteration early.
