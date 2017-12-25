@@ -1,3 +1,5 @@
 {
-  "git": false
+  "git": true,
+  "branch": "refs/heads/all_gpu",
+  "path": "/home/daniyar/tensorflow"
 }
